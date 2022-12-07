@@ -1,4 +1,6 @@
 import datetime
+import urllib
+
 from bs4 import BeautifulSoup
 import requests
 import feedgenerator
@@ -47,6 +49,6 @@ for feed in feeds:
     with open('feeds/' + feed[0] + '.xml', 'w') as fp:
         rss.write(fp, 'utf-8')
 
-    index.write('<li><a href="{href}">{title}</a></li>'.format(href=feed[0] + '.xml', title=feed[1]))
+    index.write('<li><a href="{href}">{title}</a></li>'.format(href=feed[0] + '.xml', title=urllib.parse.unquote(feed[1])))
 
 index.write('</ul></body></html>')

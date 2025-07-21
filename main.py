@@ -1,21 +1,22 @@
-import datetime
-import urllib
-
-from bs4 import BeautifulSoup
-import requests
-import feedgenerator
 import csv
+import datetime
+import urllib.parse
+
+import feedgenerator
+import requests
+from bs4 import BeautifulSoup
+from jinja2 import Environment, FileSystemLoader
 
 feed_file = open('feed.csv')
-feeds = csv.reader(feed_file)
+csv_feeds = csv.reader(feed_file)
 
-index = open('feeds/index.html', 'w')
-index.write('<!DOCTYPE html><html><body><ul>')
-
-for feed in feeds:
+rendered_feeds = []
+for feed in csv_feeds:
     print(feed)
+    rendered_feeds.append({'id': feed[0], 'title': urllib.parse.unquote(feed[1])})
+
     comics_url = "https://yanmaga.jp/comics/" + feed[1]
-    comics = requests.get(comics_url).text
+    comics = requests.get(comics_url, verify=False).text
 
     soup = BeautifulSoup(comics, 'html.parser')
 
@@ -48,6 +49,11 @@ for feed in feeds:
     with open('feeds/' + feed[0] + '.xml', 'w') as fp:
         rss.write(fp, 'utf-8')
 
-    index.write('<li><a href="{href}">{title}</a></li>'.format(href=feed[0] + '.xml', title=urllib.parse.unquote(feed[1])))
-
-index.write('</ul></body></html>')
+# Generate index.html
+jinja_env = Environment(
+    loader=FileSystemLoader('templates'),
+    autoescape=True
+)
+jinja_template = jinja_env.get_template('index.html')
+index = open('feeds/index.html', 'w')
+index.write(jinja_template.render(feeds=rendered_feeds))

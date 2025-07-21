@@ -32,6 +32,7 @@ jobs:
       - name: Deploy
         uses: actions/upload-artifact@v4
         with:
+          name: github-pages
           path: feeds
 
   publish:

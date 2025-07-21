@@ -21,7 +21,6 @@ for feed in feeds:
 
     detail_img = soup.find('div', class_="detailv2-thumbnail-image").img
     print(detail_img.get('alt'))
-    print(detail_img.get('src'))
 
     rss = feedgenerator.Atom1Feed(
         title=detail_img.get('alt'),
@@ -35,7 +34,6 @@ for feed in feeds:
         if episode.find('span', class_="mod-episode-point--free") is None:
             continue
 
-        # print(episode)
         href = episode.a.get('href')
 
         rss.add_item(
@@ -43,7 +41,8 @@ for feed in feeds:
             title=episode.find('p', class_="mod-episode-title").text,
             link="https://yanmaga.jp" + href,
             description="",
-            pubdate=datetime.datetime.strptime(episode.find('time', class_="mod-episode-date").text + ' 00:00:00+0900', '%Y/%m/%d %H:%M:%S%z')
+            pubdate=datetime.datetime.strptime(episode.find('time', class_="mod-episode-date").text + ' 00:00:00+0900', '%Y/%m/%d %H:%M:%S%z'),
+            content=""
         )
 
     with open('feeds/' + feed[0] + '.xml', 'w') as fp:

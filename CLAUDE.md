@@ -18,15 +18,20 @@ uv run main.py
 
 テストは存在しません。ローカル実行で動作確認してください。
 
+Python は `pyproject.toml` で `~=3.12` を要求し、`.python-version` は `3.13` にピン留めされている。`uv` が `.python-version` を優先するため通常は 3.13 が使われる。
+
 ## Architecture
 
 ### データフロー
 
 1. `feed.csv` を読み込む（形式: `id,URLエンコードされたマンガタイトル`）
-2. 各エントリに対して `https://yanmaga.jp/comics/{title}` にリクエスト
-3. BeautifulSoup で HTML をパース → 無料エピソード (`mod-episode-point--free`) を抽出
-4. `feedgenerator` で Atom フィードを生成 → `feeds/{id}.xml` に書き出し
-5. Jinja2 で `templates/index.html` をレンダリング → `feeds/index.html` に書き出し
+2. `id` を `^[A-Za-z0-9_-]+$` で検証し、不正な行はスキップ（出力パス経由の path traversal 防止）
+3. 各エントリに対して `https://yanmaga.jp/comics/{title}` にリクエスト
+4. BeautifulSoup で HTML をパース:
+   - `div.detailv2-thumbnail-image img` からフィードタイトル (`alt`) とカバー画像 (`src`) を取得。取れなければその id はスキップ
+   - `div.mod-episode-public` を走査し、内部に `span.mod-episode-point--free` を持つエピソードのみ採用
+5. `feedgenerator.Atom1Feed` で Atom フィードを生成 → `feeds/{id}.xml` に書き出し
+6. Jinja2 (`autoescape=True`) で `templates/index.html` をレンダリング → `feeds/index.html` に書き出し
 
 ### 主要ファイル
 
@@ -35,7 +40,11 @@ uv run main.py
 | `main.py` | 唯一の実行スクリプト。スクレイピング・フィード生成・HTML生成をすべて担う |
 | `feed.csv` | 購読対象マンガの定義。`id,URLエンコードタイトル` の CSV |
 | `templates/index.html` | Jinja2 テンプレート。`feeds` 変数（`id`, `title` を持つオブジェクトのリスト）を受け取る |
-| `feeds/` | 出力ディレクトリ。`.gitignore` 対象。GitHub Pages にデプロイされる |
+| `feeds/` | 出力ディレクトリ。`.gitkeep` 以外は ignore (`/feeds/*.xml`, `/feeds/index.html`)。GitHub Pages にデプロイされる |
+
+### 生成 HTML の挙動
+
+`feeds/index.html` は購読用のランディングページ。各マンガ行にある `/feed subscribe` ボタンは、`https://hanwarai.github.io/yanmaga-rss/{id}.xml` を前置した Misskey 形式のコマンド文字列をクリップボードへコピーする。ユーザーがチャットに貼り付けて購読する想定。
 
 ### マンガの追加方法
 

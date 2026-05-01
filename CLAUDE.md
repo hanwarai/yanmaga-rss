@@ -18,7 +18,7 @@ uv run main.py
 
 テストは存在しません。ローカル実行で動作確認してください。
 
-Python は `pyproject.toml` で `~=3.12` を要求し、`.python-version` は `3.13` にピン留めされている。`uv` が `.python-version` を優先するため通常は 3.13 が使われる。
+Python は `pyproject.toml` で `>=3.13` を要求し、`.python-version` も `3.13` にピン留め。CI では `actions/setup-python` が `python-version-file: pyproject.toml` を読んで `requires-python` を解決する。
 
 ## Architecture
 

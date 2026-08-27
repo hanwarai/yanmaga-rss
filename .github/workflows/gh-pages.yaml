@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+  # PR では build ジョブだけを走らせる (デプロイはしない)。
+  # Dependabot PR に CI が付き、uv.lock の整合性・スクレイピングの疎通・
+  # bump 後の action バージョンそのものが merge 前に検証される。
+  pull_request:
+    branches:
+      - main
   schedule:
     - cron: "0 */12 * * *"
 
@@ -39,19 +45,23 @@ jobs:
         with:
           python-version-file: "pyproject.toml"
 
+      # --locked: uv.lock が pyproject.toml と整合していなければ失敗させる。
+      # これがないと lock が壊れた PR でも暗黙に再解決されて green になってしまう。
       - name: Install the project
-        run: uv sync --all-extras
+        run: uv sync --all-extras --locked
 
       - name: main.py
         run: uv run main.py
 
       - name: Deploy
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: feeds
 
   publish:
     needs: build
+    if: github.event_name != 'pull_request'
     permissions:
       pages: write
       id-token: write

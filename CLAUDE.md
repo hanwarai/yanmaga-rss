@@ -16,7 +16,7 @@ uv sync --all-extras
 uv run main.py
 ```
 
-テストは存在しません。ローカル実行で動作確認してください。
+ユニットテストは存在しない。ローカル実行で動作確認する。PR には build ジョブ（依存の整合性チェックと yanmaga.jp への実疎通）が CI として走る。
 
 Python は `pyproject.toml` で `>=3.13` を要求し、`.python-version` も `3.13` にピン留め。CI では `actions/setup-python` が `python-version-file: pyproject.toml` を読んで `requires-python` を解決する。
 
@@ -60,7 +60,10 @@ Python は `pyproject.toml` で `>=3.13` を要求し、`.python-version` も `3
 ### CI/CD
 
 GitHub Actions (`.github/workflows/gh-pages.yaml`) が以下のタイミングで自動実行:
-- `main` ブランチへの push
-- 12 時間ごと（cron）
+- `main` ブランチへの push → build + デプロイ
+- 12 時間ごと（cron）→ build + デプロイ
+- `main` 宛の pull_request → **build のみ**（`Deploy` ステップと `publish` ジョブは `github.event_name != 'pull_request'` でガード）
 
 `feeds/` ディレクトリの内容が GitHub Pages にデプロイされ、フィードは `https://hanwarai.github.io/yanmaga-rss/{id}.xml` で公開される。
+
+build ジョブは `uv sync --all-extras --locked` と `uv run main.py` を実行する。`--locked` は `uv.lock` と `pyproject.toml` の整合性を検証するためのもので、これを外すと lock が壊れた PR でも暗黙に再解決されて green になるため外さないこと。pull_request 実行では merge ref 側の workflow ファイルが使われるので、action の bump PR では bump 後のバージョン自体が CI で実行される。

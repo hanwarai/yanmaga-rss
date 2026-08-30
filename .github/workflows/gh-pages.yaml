@@ -4,14 +4,9 @@ on:
   push:
     branches:
       - main
-  # PR では build ジョブだけを走らせる (デプロイはしない)。
-  # Dependabot PR に CI が付き、uv.lock の整合性・スクレイピングの疎通・
-  # bump 後の action バージョンそのものが merge 前に検証される。
-  pull_request:
-    branches:
-      - main
   schedule:
     - cron: "0 */12 * * *"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -24,23 +19,19 @@ jobs:
       - uses: actions/checkout@v7
 
       # uv 本体のバージョンは pyproject.toml の [dependency-groups] ci にピンしてあり、
-      # Dependabot (uv エコシステム) がそれを bump する。ここでその値を読み取り setup-uv に渡す。
+      # Dependabot (uv エコシステム) がそれを bump する。読み取りは ci.yaml と
+      # 共有するためスクリプトに切り出してある。
       - name: Resolve uv version
         id: uv-version
-        run: |
-          version=$(grep -oP '"uv==\K[0-9]+\.[0-9]+\.[0-9]+' pyproject.toml)
-          if [ -z "$version" ]; then
-            echo "::error::could not resolve uv version pin from pyproject.toml"
-            exit 1
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+        run: .github/scripts/resolve-uv-version.sh >> "$GITHUB_OUTPUT"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.0.1
         with:
           version: ${{ steps.uv-version.outputs.version }}
+          enable-cache: true
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v7
         with:
           python-version-file: "pyproject.toml"
@@ -48,26 +39,18 @@ jobs:
       # --locked: uv.lock が pyproject.toml と整合していなければ失敗させる。
       # これがないと lock が壊れた PR でも暗黙に再解決されて green になってしまう。
       - name: Install the project
-        run: uv sync --all-extras --locked
-
-      # ワークフロー定義自体の lint。actionlint 本体のバージョンは action 既定の latest に
-      # 任せる (ここを固定すると Dependabot が追えないピンになり、黙って腐る)。action 自体は
-      # SHA ピンなので供給網は押さえられている。
-      - name: Lint workflows
-        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+        run: uv sync --locked --all-extras
 
       - name: main.py
         run: uv run main.py
 
       - name: Deploy
-        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: feeds
 
   publish:
     needs: build
-    if: github.event_name != 'pull_request'
     permissions:
       pages: write
       id-token: write

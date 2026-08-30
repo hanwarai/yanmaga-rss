@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # uv 本体のバージョンは pyproject.toml の [dependency-groups] ci にピンしてあり、
+      # Dependabot (uv エコシステム) がそれを bump する。読み取りは ci.yaml と
+      # gh-pages.yaml で共有するためスクリプトに切り出してある。
+      - name: Resolve uv version
+        id: uv-version
+        run: .github/scripts/resolve-uv-version.sh >> "$GITHUB_OUTPUT"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: ${{ steps.uv-version.outputs.version }}
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: "pyproject.toml"
+
+      # --locked: uv.lock と pyproject.toml の整合性を検証する。これを外すと lock が
+      # 壊れた Dependabot PR でも暗黙に再解決されて green になってしまう。
+      - name: Install the project
+        run: uv sync --locked --all-extras
+
+      # ワークフロー定義自体の lint。actionlint 本体のバージョンは action 既定の latest に
+      # 任せる (ここを固定すると Dependabot が追えないピンになり、黙って腐る)。action 自体は
+      # SHA ピンなので供給網は押さえられている。
+      - name: Lint workflows
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+
+      # 実フェッチ (uv run main.py) は PR では行わない。PR を yanmaga.jp の可用性に
+      # 依存させないため。スクレイピングの疎通は main への push と 12 時間ごとの
+      # schedule 実行が担い、そちらが壊れれば公開サイトの更新が止まって気付ける。
+      - name: Smoke test
+        run: uv run --no-sync python -c "import main"

@@ -45,6 +45,15 @@ jobs:
       - name: Lint workflows
         uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
 
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Type check
+        run: uv run mypy
+
       # 実フェッチ (uv run main.py) は PR では行わない。PR を yanmaga.jp の可用性に
       # 依存させないため。スクレイピングの疎通は main への push と 12 時間ごとの
       # schedule 実行が担い、そちらが壊れれば公開サイトの更新が止まって気付ける。

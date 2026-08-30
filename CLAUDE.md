@@ -59,11 +59,19 @@ Python は `pyproject.toml` で `>=3.13` を要求し、`.python-version` も `3
 
 ### CI/CD
 
-GitHub Actions (`.github/workflows/gh-pages.yaml`) が以下のタイミングで自動実行:
-- `main` ブランチへの push → build + デプロイ
-- 12 時間ごと（cron）→ build + デプロイ
-- `main` 宛の pull_request → **build のみ**（`Deploy` ステップと `publish` ジョブは `github.event_name != 'pull_request'` でガード）
+姉妹 RSS リポジトリと同じ 2 ワークフロー構成:
 
-`feeds/` ディレクトリの内容が GitHub Pages にデプロイされ、フィードは `https://hanwarai.github.io/yanmaga-rss/{id}.xml` で公開される。
+**`ci.yaml`** — PR ゲート:
+- トリガー: `pull_request`。ジョブ名は `check`（main の branch protection がこの名前を必須チェックにしているので、**変えると必須チェックが報告されなくなる**）
+- 処理: `uv sync --locked --all-extras` → actionlint → smoke test（`python -c "import main"`）
+- **実フェッチ（`uv run main.py`）は含めない**。PR を yanmaga.jp の可用性に依存させないため。スクレイピングの疎通は push と schedule 実行が担う
+- `--locked` は `uv.lock` と `pyproject.toml` の整合性を検証する。外すと lock が壊れた Dependabot PR でも暗黙に再解決されて green になるため外さないこと
 
-build ジョブは `uv sync --all-extras --locked` と `uv run main.py` を実行する。`--locked` は `uv.lock` と `pyproject.toml` の整合性を検証するためのもので、これを外すと lock が壊れた PR でも暗黙に再解決されて green になるため外さないこと。pull_request 実行では merge ref 側の workflow ファイルが使われるので、action の bump PR では bump 後のバージョン自体が CI で実行される。
+**`gh-pages.yaml`** — 公開:
+- トリガー: `main` への push、12 時間ごとの cron、`workflow_dispatch`
+- 処理: `uv sync --locked --all-extras` → `uv run main.py` → `feeds/` を GitHub Pages にデプロイ
+- フィードは `https://hanwarai.github.io/yanmaga-rss/{id}.xml` で公開される
+
+**`dependabot-auto-merge.yaml`** — non-major の Dependabot PR を自動マージ（major は手動レビューに残す）。
+
+uv ピンの読み取りは `.github/scripts/resolve-uv-version.sh` に切り出して両ワークフローで共有する（`grep -P` は GNU 限定で macOS では動かないため POSIX sed で実装）。一方 `uses:` の行は両ファイルに重複させたままにすること — Dependabot の github-actions エコシステムは `.github/workflows/` とルートの `action.yml` しか走査せず、composite action へ切り出すとバージョン追跡から外れる（dependabot-core#9788）。

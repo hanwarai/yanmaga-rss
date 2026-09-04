@@ -64,6 +64,7 @@ Python は `pyproject.toml` で `>=3.13` を要求し、`.python-version` も `3
 **`ci.yaml`** — PR ゲート:
 - トリガー: `pull_request`。ジョブ名は `check`（main の branch protection がこの名前を必須チェックにしているので、**変えると必須チェックが報告されなくなる**）
 - 処理: `uv sync --locked --all-extras` → actionlint → smoke test（`python -c "import main"`）
+- **潰れた式の guard**（actionlint の直後）: 二重波括弧が一重に潰れた式を grep で弾く。`${ github.x }` / `${github.x}` は YAML としてもワークフロー定義としても妥当な**ただの文字列**なので actionlint も警告を出さず、CI が green のまま壊れる（2026-09-04 に 6 リポジトリの `dependabot-auto-merge.yaml` がこれで壊れ、Dependabot PR が約 5 日滞留した）。シェル変数の展開は波括弧の直後に空白を置かないため `${VAR}` は誤検知しない
 - **実フェッチ（`uv run main.py`）は含めない**。PR を yanmaga.jp の可用性に依存させないため。スクレイピングの疎通は push と schedule 実行が担う
 - `--locked` は `uv.lock` と `pyproject.toml` の整合性を検証する。外すと lock が壊れた Dependabot PR でも暗黙に再解決されて green になるため外さないこと
 

@@ -73,6 +73,6 @@ Python は `pyproject.toml` で `>=3.13` を要求し、`.python-version` も `3
 - 処理: `uv sync --locked --all-extras` → `uv run main.py` → `feeds/` を GitHub Pages にデプロイ
 - フィードは `https://hanwarai.github.io/yanmaga-rss/{id}.xml` で公開される
 
-**`dependabot-auto-merge.yaml`** — non-major の Dependabot PR を自動マージ（major は手動レビューに残す）。
+**`dependabot-auto-merge.yaml`** — non-major の Dependabot PR を自動マージ（major は手動レビューに残す。例外は `certifi` / `tzdata` で、日付バージョニングのため年をまたぐ更新が major に分類されるので `dependency-names` が完全一致なら通す）。
 
 uv ピンの読み取りは `.github/scripts/resolve-uv-version.sh` に切り出して両ワークフローで共有する（`grep -P` は GNU 限定で macOS では動かないため POSIX sed で実装）。一方 `uses:` の行は両ファイルに重複させたままにすること — Dependabot の github-actions エコシステムは `.github/workflows/` とルートの `action.yml` しか走査せず、composite action へ切り出すとバージョン追跡から外れる（dependabot-core#9788）。
